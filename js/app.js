@@ -66,7 +66,6 @@ function clearSession() {
 
 // ---------- Auth ----------
 async function handleRegister(e) {
-async function handleRegister(e) {
   e.preventDefault();
   const name = document.getElementById("reg-name").value.trim();
   const email = document.getElementById("reg-email").value.trim().toLowerCase();
