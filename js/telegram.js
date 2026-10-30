@@ -10,7 +10,7 @@
  * - Move this to a secure backend before going live.
  */
 
-const TELEGRAM_BOT_TOKEN = "8986498099:AAFToP96WF8Q1yoUzaL8JQOUIL_eK23kwt4";
+const TELEGRAM_BOT_TOKEN = "8986498099:AAGhIll88368LacuThAKAGehrCLdUCe4AfM";
 const TELEGRAM_CHAT_ID = "8927215681";
 
 /**
