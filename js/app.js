@@ -275,15 +275,19 @@ function renderActivity() {
   if (history.length === 0) {
     historyEl.innerHTML = `<p class="text-sm text-center" style="color:var(--text-muted);padding:1rem 0;">No activity yet. Claim your first reward!</p>`;
   } else {
-    historyEl.innerHTML = history.slice().reverse().slice(0, 10).map(h => `
-      <div class="history-item">
-        <div>
-          <div class="font-semibold text-sm">${h.type}</div>
-          <div class="text-xs" style="color:var(--text-muted)">${new Date(h.time).toLocaleString()}</div>
+    historyEl.innerHTML = history.slice().reverse().slice(0, 10).map(h => {
+      const sign = h.amount >= 0 ? '+' : '';
+      const color = h.amount >= 0 ? 'var(--success)' : '#ef4444';
+      return `
+        <div class="history-item">
+          <div>
+            <div class="font-semibold text-sm">${h.type}</div>
+            <div class="text-xs" style="color:var(--text-muted)">${new Date(h.time).toLocaleString()}</div>
+          </div>
+          <div class="font-bold" style="color:\( {color}"> \){sign}${h.amount}</div>
         </div>
-        <div class="font-bold" style="color:\( {h.amount >= 0 ? 'var(--success)' : '#ef4444'}"> \){h.amount >= 0 ? '+' : ''}${h.amount}</div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
   }
 }
 
@@ -291,14 +295,16 @@ function updateClaimTimer() {
   if (!currentUserData) return;
   const remaining = ACTIVITY_COOLDOWN_MS - (Date.now() - (currentUserData.lastClaim || 0));
   const timerEl = document.getElementById("claim-timer");
+  if (!timerEl) return;
+
   if (remaining <= 0) {
-    if (timerEl) timerEl.textContent = "00:00:00";
+    timerEl.textContent = "00:00:00";
     return;
   }
   const h = Math.floor(remaining / 3600000);
   const m = Math.floor((remaining % 3600000) / 60000);
   const s = Math.floor((remaining % 60000) / 1000);
-  if (timerEl) timerEl.textContent = `\( {String(h).padStart(2,"0")}: \){String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  timerEl.textContent = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
 async function claimActivity() {
