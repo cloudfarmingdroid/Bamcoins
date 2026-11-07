@@ -149,17 +149,21 @@ async function handleRegister(e) {
     return;
   }
   if (password.length < 6) {
-    showToast("Password must be at least 6 characters", "error");
-    return;
-  }
-  if (!/[a-zA-Z]/.test(password)) {
-    showToast("Password must contain at least one letter", "error");
-    return;
-  }
-  if (!/[0-9]/.test(password)) {
-    showToast("Password must contain at least one number", "error");
-    return;
-  }
+  showToast("Password must be at least 6 characters", "error");
+  return;
+}
+if (!/[a-zA-Z]/.test(password)) {
+  showToast("Password must contain at least one letter", "error");
+  return;
+}
+if (!/[0-9]/.test(password)) {
+  showToast("Password must contain at least one number", "error");
+  return;
+}
+if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  showToast("Password must contain at least one special character (!@#$% etc.)", "error");
+  return;
+}
 
   try {
     showToast("Checking device...", "success");
